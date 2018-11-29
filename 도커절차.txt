@@ -1,0 +1,510 @@
+﻿1. https://docker.com
+ - 도커 설치(설치시 vbox관련 체크박스체크)
+2. https://www.virtualbox.org/wiki/Downloads
+ - 버추얼박스 설치
+--------------------------------------------
+2-1. 도커란
+ - 도커는 이미지(순수한우분트리눅스)와 이를 실행하는 컨테이너
+   이 2개의 개념으로 구성
+ - 이미지는 docker hub를 통해서 전세계적으로 배포
+ - 사용자는 이 이미지를 다운 받아서 컨테이너를 구성하면 
+   바로 해당 이미지에 해당되는 운영체계(등)을 구성할수 있다
+ - 컨테이너(89MB) <-> 통신 <-> 이미지는(2GB)
+
+2-2. 하둡 구성 스토리
+ - 1) 우분트 이미지를 받는다
+ - 2) 이 이미지를 기반으로 컨테이너 구성한다
+ - 3) 이 컨테이너에 하둡을 세팅한다
+ - 4) 이 컨테이너를 이미지로 새로 만든다 
+ - 5) 새로 만든 이미지는 하둡이 모두 구성된 완제품
+ - 6) 이 완제품 이미지를 기반으로 3개의 컨테이너를 구성한다
+ - 7) 이 컨테이너는 마스터와 슬레이브1, 2 가 된다
+ - 8) 마스터와 슬레이브가 연결되어 병렬ㅇ 구성및 클러스터가된다
+ - 9) hdfs, 하이브, 스파크 등등을 구성 및 프로그램 작성 진행
+ -10) 간단한 프로젝트를 절차적으로 연결하여 수행(머신러닝, 기타 
+      다른작업들)
+--------------------------------------------
+[여기까지 진행하고 대기]
+3. Docker Quickstart Terminal 실행
+
+[docker 명령]
+4. 명령
+ - 설치된 이미지 확인
+   > docker images
+ - 우분트 이미지 다운로드 
+   > docker pull ubuntu:latest
+ or
+   > docker pull ubuntu:16.04
+ - 이미지를 삭제
+   > docker rmi IMAGE_ID
+ - 이미지를 모두 삭제
+   > docker rmi -f `docker images`
+ ==================================
+ - 컨테이너 목록 확인
+   > docker ps -a
+ - 컨테이너 한개 삭제
+   > docker rm 컨테이너_ID
+ - 컨테이너 모두 삭제
+   > docker rm `docker ps -a -q`
+ - 컨테이너 생성
+   : -name : 컨테이너의 이름
+   : -it : 터미널 입력 
+   > docker run --name hadoop_u16_base -it ubuntu:16.04 /bin/bash
+   => 컨테이너 생성되고 바로 리눅스 진입
+   root$>ls
+- 리눅스 빠져 나가기 (로그아웃)
+   root$>exit
+- 리눅스 다시 진입하기
+   > docker start hadoop_u16_base
+   > docker attach hadoop_u16_base
+- 리눅스 버전 확인
+   > cat /etc/issue
+   > cd home
+   > mkdir data && cd data
+
+=> 새로 터미널 오픈
+- 로컬 PC의 데이터를 컨테이너로 전송
+   > 한글 변경 및 위치 일단 조정 (s.txt)
+   > docker cp s.txt hadoop_u16_base:/home/data/t.txt
+- 컨테이너 파일을 로컬 PC로
+   > docker cp hadoop_u16_base:/home/data/t.txt t.txt 
+
+=> 리눅스 화면으로 이동
+- 패키지 관리자 업데이트
+   > apt-get update
+- 패키지 관리자 업그레이드
+   > apt-get upgrade
+
+- 자바 설치
+   > apt-get install software-properties-common 
+   > su - 
+echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | tee /etc/apt/sources.list.d/webupd8team-java.list 
+echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | tee -a /etc/apt/sources.list.d/webupd8team-java.list 
+
+   > apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886 
+   > apt-get update 
+   > apt-get install oracle-java8-installer 
+   > java -version 
+
+- apt-get upgrade
+에디터 설치
+- apt-get install nano
+========================================
+하둡 설치
+위치 선정
+   > cd /home
+/home/soft/apache/hadoop
+   > mkdir soft && cd soft && mkdir apache && cd apache && mkdir hadoop && cd hadoop
+하둡 배포 주소
+http://mirrors.sonic.net
+   > wget http://mirrors.sonic.net/apache/hadoop/common/hadoop-2.6.5/hadoop-2.6.5.tar.gz
+압축 해제
+   > tar xvzf hadoop-2.6.5.tar.gz
+환경 변수 설정
+   > nano ~/.bashrc
+-----------------------------------------------------
+#hadoop config path setting
+export JAVA_HOME=/usr/lib/jvm/java-8-oracle
+export HADOOP_HOME=/home/soft/apache/hadoop/hadoop-2.6.5
+export HADOOP_CONFIG_HOME=$HADOOP_HOME/etc/hadoop
+export PATH=$PATH:$HADOOP_HOME/bin
+export PATH=$PATH:$HADOOP_HOME/sbin
+-----------------------------------------------------
+설정 파일 수정
+   > eixt (리눅스 종료->새로 진입하면 (재부팅효과))
+다시 리눅스에 진입했다 ( start ~ attach 표현 생략)
+   > cd $HADOOP_HOME
+   > ls
+-----------------------------------------------------
+LICENSE.txt  NOTICE.txt  README.txt  bin  etc  include  lib  libexec  sbin  share
+-----------------------------------------------------
+   > mkdir tmp
+   > mkdir namenode
+   > mkdir datanode
+   
+   > cd $HADOOP_CONFIG_HOME
+   > cp mapred-site.xml.template mapred-site.xml
+
+아래 4개 파일을 수정 (구성을 입력)
+core-site.xml
+hdfs-site.xml
+yarn-site.xml
+mapred-site.xml
+   > nano core-site.xml
+---------------------------------------------------------
+   <property>
+       <name>hadoop.tmp.dir</name>
+       <value>/home/soft/apache/hadoop/hadoop-2.6.5/tmp</value>
+       <description>base temporary directories</description>
+   </property>
+   <property>
+       <name>fs.default.name</name>
+       <value>hdfs://master:9000</value>
+       <final>true</final>
+       <description>default file system name</description>
+   </property>
+----------------------------------------------------------
+
+   > nano hdfs-site.xml
+---------------------------------------------------------
+   <property>
+       <name>dfs.replication</name>
+       <value>2</value>
+       <final>true</final>
+       <description>default block replication</description>
+   </property>
+
+   <property>
+       <name>dfs.namenode.name.dir</name>
+       <value>/home/soft/apache/hadoop/hadoop-2.6.5/namenode</value>
+       <final>true</final>
+       <description>default namenode</description>
+   </property>
+
+   <property>
+       <name>dfs.datanode.data.dir</name>
+       <value>/home/soft/apache/hadoop/hadoop-2.6.5/datanode</value>
+       <final>true</final>
+       <description>default datanode</description>
+   </property>
+----------------------------------------------------------   
+   > nano yarn-site.xml
+----------------------------------------------------------   
+   <property>
+       <name>yarn.nodemanager.aux-services</name>
+       <value>mapreduce_shuffle</value>
+   </property>
+   <property>
+       <name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
+       <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+   </property>
+----------------------------------------------------------   
+   > nano mapred-site.xml
+----------------------------------------------------------
+   <property>
+       <name>mapred.job.tracker</name>
+       <value>master:9001</value>
+       <description>host and port that the MapReduce job tracker runs</description>
+   </property>   
+----------------------------------------------------------  
+하둡 환경 에서 자바 경로 수정 
+   > nano hadoop-env.sh
+----------------------------------------------------------
+export JAVA_HOME=${JAVA_HOME}
+
+아래처럼 수정
+
+export JAVA_HOME=/usr/lib/jvm/java-8-oracle
+----------------------------------------------------------
+네임노드 초기화
+   > hadoop version
+   > hadoop namenode -format
+----------------------------------------------------------
+여기까지는 단독 구성시 해당된다
+만약 master/slave 방식으로 노드를 늘려간다면 
+다음 단계 추가 된다
+----------------------------------------------------------
+ssh 설치 및 활성화
+    > apt-get install ssh
+ssh 서비스 가동
+    > service ssh start
+활성화
+    > systemctl enable ssh
+ssh가 리눅스 가동시 자동으로 구동되게 처리 필요.
+만약 않된다면 수동이더라도 ssh를 가동해야 노드가 연결된다
+----------------------------------------------------------
+키파일 생성 및 처리
+    > cd ~/
+    > ssh-keygen -t rsa -P '' -f ~/.ssh/id_dsa
+# 비밀번호 없이 해당 경로에 키 생성
+	>cd .ssh
+    > cat id_dsa.pub >> authorized_keys
+	>cd ../..
+	>mkdir /var/run/sshd
+	>exit
+----------------------------------------------------------
+하둡이 구성된 컨테이너를 이미지로 생성
+docker commit hadoop_u16_base ubuntu16:hadoop
+
+----------------------------------------------------------
+새로 만든 이미지로부터 master /slave 컨테이너 구성
+
+pkrngd/hadoop
+
+master
+---------------------------------------------------------
+docker run -i -t -h master --name master -p 50070:50070 -p 9000:9000 ubuntu16:hadoop
+docker run -i -t -h master --name master -p 50070:50070 -p 9000:9000 -p 3306:3306 -p 8088:8088 pkrngd/hadoop:ubuntu_hadoop
+ 
+
+slave1
+---------------------------------------------------------
+docker run -i -t -h slave1 --name slave1 --link master:master ubuntu16:hadoop
+docker run -i -t -h slave1 --name slave1 --link master:master pkrngd/hadoop:ubuntu_hadoop
+
+slave2
+---------------------------------------------------------
+docker run -i -t -h slave2 --name slave2 --link master:master ubuntu16:hadoop
+docker run -i -t -h slave2 --name slave2 --link master:master pkrngd/hadoop:ubuntu_hadoop
+
+
+[일반 도커 화면]
+slave1, slave2의 화면 ip 확인
+>docker inspect slave1
+	172.17.0.3
+>docker inspect slave2
+	172.17.0.4
+
+[master 화면]
+노드별 IP 설정
+	> nano /etc/hosts
+
+datanode가 될 컨테이너 목록 기술
+	> cd $HADOOP_CONFIG_HOME
+	> nano slaves
+
+localhost를 지우고
+---------------------------------------------------------
+slave1
+slave2
+master
+---------------------------------------------------------
+
+[master, slave1, slave2 공통]
+향후 자동 구동등은 이미지 원본 컨테이너에 반영하여 우분투 구동시 자동으로 올라오게 처리
+	> /etc/init.d/ssh start
+
+[master 화면]
+	> start-all.sh
+레포트로 확인
+	> hdfs dfsadmin -report
+-wordcount 테스트
+	> cd $HADOOP_HOME
+디렉토리 생성
+	>hadoop fs -mkdir /input
+파일 넣기(로컬 pc의 파일을 hdfs에 보내기)
+	>hadoop fs -put LICENSE.txt /input
+	>hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-2.6.5.jar wordcount /input /output
+	>hadoop fs -cat /output/*
+
+
+4. [방법2] 파일을 하이브(hive)로 테이블로 가져오기
+[마스터화면]
+0) 하둡이 설정도니 이후(하둡 설정 이전에 설치하려면 어느정도 가능하고)
+1) 하이브 설치 -> 최종 > hive> 프럼프트가 열린다.
+	>cd $HADOOP_HOME
+	>cd ../..
+	>mkdir hive && cd hive
+	>wget http://mirrors.sonic.net/apache/hive/hive-2.3.4/apache-hive-2.3.4-bin.tar.gz
+
+# hive config path setting
+export HIVE_HOME=/home/soft/apache/hive/apache-hive-2.3.4-bin
+export PATH=$PATH:$HIVE_HOME/bin
+
+ > hdfs dfs -mkdir /tmp
+ > hdfs dfs -mkdir /tmp/hive
+ > hdfs dfs -mkdir /user
+ > hdfs dfs -mkdir /user/hive
+ > hdfs dfs -mkdir /user/hive/warehouse
+
+ > hdfs dfs -chmod g+w /tmp
+ > hdfs dfs -chmod g+w /user/hive/warehouse
+ > hdfs dfs -chmod 777 /tmp/hive
+
+환경설정 
+ > cd apache-hive-2.3.4-bin/conf
+ > cp hive-env.sh.template hive-env.sh
+ > nano hive-env.sh
+
+추가분
+HADOOP_HOME=/home/soft/apache/hadoop/hadoop-2.6.5
+ 
+ > cp hive-default.xml.template hive-default.xml
+ > cp hive-log4j2.properties.template hive-log4j2.properties
+ > cp hive-exec-log4j2.properties.template hive-exec-log4j2.properties
+ > cp beeline-log4j2.properties.template beeline-log4j2.properties
+
+환경 설정 편집
+> mkdir /home/soft/apache/hive/apache-hive-2.3.4-bin/warehouse
+> nano hive-default.xml
+
+
+-------------------------------------------------------
+하이브를 처음 실행시 반드시 실행해야할 명령어
+# schematool는 하이브 초기화 업그레이드 진행 담당.
+# dbType 메타스토어 사용한 데이터베이스 타입 저장.
+# derby 데이터 타입, 다른 타입을 사용할 경우 명시
+	>schematool -initSchema -dbType derby
+디비가 깨져서 다시 초기화 할려면   
+   > cd ~/
+   > ls -l |grep meta
+   > schematool -initSchema -dbType derby
+# 하이브 진입 
+	>hive
+#하이브 프럼프트
+	hive>show databases;
+---------------------------------------------------------------
+OK
+default
+---------------------------------------------------------------
+테이블을 생성하면서 데이터를 디비에 입력
+입력데이터의 형태
+- 텍스트 파일 : 모든 데이터의 형식이 유니코드 표준을 준수한 원시 텍스트로 저장된 파일(csv, txt, ...)
+- 시퀀스 파일 : 데이터가 이진 키 - 값의 쌍으로 구성되어 저장된 파일 
+
+- RC 파일 : 데이터로 로우 기반 최적화하는 방식 대신 컬럼 기반으로 최적화된 형식으로 저장.
+- ORC 파일 : Optimized Row Colum                                                            => 하이브 저장 방식
+
+- Parquest 파일 : 하이브, 드릴, 임팔라, 크런치, 피그 등에서 하이브와 호환되는 컬럼 기반 형식으로 저장..
+
+
+하이브의 테이블은 외부 테이블과 내부 테이블로 나누어진다.
+처리속도가 빠른 것은 내부 테이블이 된다.
+#외부테이블을 만들어서 csv를 입력
+  hive> create external table if not exists Names_text (
+    EmployeeID int, Names string, Title string, State string, Latop String
+  ) comment "Employee Names"
+  Row format Delimited
+  Fields terminated by ","
+  stored as textfile
+  location "/data";
+
+#내부테이블 만든다 -> orc 방식
+  hive> create table if not exists Names (
+    EmployeeID int, Names string, Title string, State string, Latop String
+  ) comment 'Employee Names'
+  Row format Delimited
+  Fields terminated by ','
+  stored as ORC;
+
+
+# 외부테이블에서 내부테이블로 데이터 입력
+  hive> insert overwrite table names select * from names_text;
+# 입력된 데이터 확인
+  hive> select * from names limit 5;
+
+
+# 파티션 기능. 테이블을 논리적으로 나눈다. state 필드를 기준으로 파티션 적용
+# 컬럼이 많아질때 동적 파티션 삽입으로 데이터를 밀어 넣을대 사용
+  hive> create table if not exists Names_part (
+    EmployeeID int, Names string, Title string, Latop String
+  ) comment 'Employee Names partitioned by state' 
+  Partitioned by (State string) 
+  Row format Delimited
+  Fields terminated by ','
+  stored as ORC;
+
+# state 값이 PA인 데이터만 복사해서 Names_part에 넣어라
+  hive> insert into table Names_part partition(state='PA')
+        select EmployeeID, Names, Title, Latop from names_text where state='PA';
+
+# 하이브 마지막 부분 확인
+-> 크롤링이 더 진행되서 names.csv가 변경되었다.
+-> 변경된 데이터를 하둡의 hdfs 상에 원시 데이터인 names.csv를 교체하였다.
+-> 하이브에서 Names_test 테이블을 접근해서 살펴볼때 같이 영향을 받는지 확인
+-> 하이브 상의 내부 테이블들이 영향을 받는지 확인.
+
+=> 영향 받는걸 지향
+
+[실험]
+원시 데이터를 수정하여 우분투에 업로드
+> docker cp names.csv master:/home/data/names2.csv
+
+# 원시 데이터 이름 변경
+> hadoop fs -mv /data/names.csv /data/names_bak.csv
+# 우분투에서 분산 시스템으로 업로드
+> hadoop fs -put /home/data/names2.csv /data/names.csv
+
+새로운 내용을 기존 내용에 덮거나 이어쓰기로 진행하면 OK
+hadoop fs -appendToFile 파일 디렉토리/ 파일
+
+하이브 진입
+> hive
+카운트 요청
+hive> select count(*) from names_text;
+에러발생
+FAILED: SemanticException org.apache.hadoop.hive.ql.metadata.HiveException: java.lang.RuntimeException: Unable to instantiate org.apache.hadoop.hive.ql.metadata.SessionHiveMetaStoreClient
+hive> 
+
+
+
+5.[방법3] 스파크를 이용하여 csv, json 파일을 하이브 테이블로 가져오기
+스파크 ->자바, 스칼란, 파이썬, R 개바 가능
+	-> 데이터 입수 -> 전처리 ->머신러닝, 분석, 예측 -> 결과처리(시각화-> 전통 도구를 사용)
+	-> 전처리만 사용
+	-> 머신러닝
+	-> 딥러닝 등등 부족으로 일부분의 용도로 사용 가능
+
+파이스파크를 설치
+사전에)
+apt-get install python3-pip
+> pip3 install pyspark
+> pip3 install pyspark --no-cache -U
+>pyspark
+
+>>> from pyspark.sql import HiveContext
+스파크 모듈 설치 -> 스칼라 코딩, 분산 연산
+--------------------------------------------------------------------------------------------------
+
+
+
+여기는 1곳 수정
+nano /usr/local/bin/find-spark-home
+----------------------------------------------
+pyhton -> python3
+----------------------------------------------
+
+여기는 3곳 수정
+nano /usr/local/bin/pyspark
+----------------------------------------------
+pyhton -> python3
+----------------------------------------------
+
+
+2. python3 -> python으로 인식하게 별칭 부여하거나
+   > nano ~/.bash_aliases
+---------------------------
+alias python=python3
+alias pip=pip3
+alias sudo='sudo'
+---------------------------
+
+
+/usr/local/bin/find-spark-home: line 40: python: command not found
+/usr/local/bin/pyspark: line 24: /bin/load-spark-env.sh: No such file or direct
+/usr/local/bin/pyspark: line 45: python: command not found
+/usr/local/bin/pyspark: line 77: /bin/spark-submit: No such file or directory
+
+
+
+> docker cp yarn-site.xml master:/home/soft/apache/hadoop/hadoop-2.6.5/etc/hadoop/
+> docker cp yarn-site.xml slave1:/home/soft/apache/hadoop/hadoop-2.6.5/etc/hadoop/
+> docker cp yarn-site.xml slave2:/home/soft/apache/hadoop/hadoop-2.6.5/etc/hadoop/
+
+alias hadoope='cd $HADOOP_CONFIG_HOME'
+alias hadooph='cd $HADOOP_HOME'
+alias hadoopd='cd $HADOOP_HOME/sbin'
+alias hiveh='cd $HIVE_HOME'
+alias hivee='cd $HIVE_HOME/conf'
+
+... .... .. ..
+>>> from pyspark.sql import HiveContext
+>>> 
+
+
+
+=> 새로 터미널 오픈
+하둡 백업(여태까지 이미지를 저장하는 의미로)
+   > docker commit hadoop_u16_base hadoop_1:hadoop
+   > docker images
+------------------------------------------------------
+REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+hadoop_1            hadoop              8151ab1979e0        8 seconds ago       1.4GB
+ubuntu              16.04               a51debf7e1eb        6 days ago          116MB
+------------------------------------------------------
+
+
+
+
+
+

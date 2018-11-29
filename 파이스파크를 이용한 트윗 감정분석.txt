@@ -1,0 +1,83 @@
+> wget http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip
+
+# 그냥 파일명 변경
+> mv trainingandtestdata.zip sentiment.zip
+
+> apt-get unzip
+-------------------------------------------------------------------
+데이터를 hdfs 상으로 전송
+
+> hadoop fs -rm /sentiment
+> hadoop fs -mkdir /sentiment
+> hadoop fs -put *.csv /sentiment
+
+긍정, 부정단어 목록을 hdfs상으로 
+> hdfs dfs -put AFINN.txt /data
+
+하이브에서 테이블을 입력 
+
+> nano build-tables.hql
+
+DROP table tweets_raw;
+create external table tweets_raw(
+'polarity' int,
+'id' string,
+'date' string,
+'query' string,
+'user' string,
+'text' string)
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+stored as textfile
+location '/sentiment'
+tblproperties("skip.header.line.count"="0");
+
+drop table tweets;
+# 외부 테이블 형태 그대로 내부 테이블을 만들어라.
+create table tweets stored as ORC as select * from tweets_raw; 
+
+drop table sentiment_words;
+create external table sentiment_words(
+'word' string,
+'score' int
+)
+row format delimited 
+fields terminated by '\t'
+stored as textfile
+location '/data';
+
+> hive -f /home/data/build-tables.hql
+
+안되면
+
+> rm -rf metastore_db
+> schematool -initSchema -dbType derby
+> hive
+hive> show databases;
+hive) exit;
+> hive -f /home/data/build-tables.hql
+
+확인
+> hive
+hive) show tables;
+hive) select count(*) from tweets raw;
+#1600498 여개
+hive) select count(*) from sentiment_words;
+#2478개
+hive) select count(*) from from tweets;
+#1600498
+
+hive> exit
+
+> cd /home/soft/project/test
+> nano.run.py
+> pip3 install run.py
+---------------------------------
+
+spark-submit --master yarn --deploy-mode cluster --num-executors 3 --executor-cores 1 --executor-memory 2G run.py
+
+spark-submit --master yarn --deploy-mode cluster --num-executors 3 --executor-cores 3 --executor-memory 1G run.py
+
+
+xrdp
+
+#원시 데이터와 물려야 해서 external?? 무슨말??

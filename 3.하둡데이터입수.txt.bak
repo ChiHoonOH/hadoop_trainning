@@ -1,0 +1,215 @@
+1. 하둡 데이터 레이크 
+ a. 하둡 데이터 레이크 : 모든 데이터를 원시 형태로 저장하는 중앙 스토리지
+ b. 데이터를 처리하는 시점에 원 데이터를 원하는 구조로 적용하는 일 수행(스키마 온 리드 방식)
+  > 미리 구조를 위채 처리할 이유가 없고, 데이터 손실 없다
+ ------------------------------------------------------------
+ c. 기존의 데이터 웨어 하우스, 데이터베이스들은 데이터 입수 단계에서 이미 설계
+  > 이미 사전에 시간괴 비용이 들고 , 원시데이터에서 필요 없는 부분은 버리게 되는 문제
+ ------------------------------------------------------------
+ a,b <-> c 방식 차이점(그림)
+ d. 하둡 데이터 레이크 방식의 장점 
+  > 모든 데이터를 사용할 수 있다 
+  > 모든 데이터를 공유할 수 잇다
+  > 모든 데이터에 접근 방식이 가능하다(다양한 처리엔진, 다양한 하둡 도구들이 다 접근)
+
+2. HDFS 명령
+ > 대용량 파일의 읽기 쓰기 작업에 최적화된 스트리망 파일 시스템
+ > 실제 파일 슬라이스는 볼수 없다. 호스트 파일 시스템에서 파일을 전송할때 합쳐서 나온다. 
+ > 파일을 슬라이스로 분할해 하둡 클러스터의 여러 서버에 이중으로 저장된다
+----------------------------------------------------------------------------------
+# HDFS 디렉토리 목록 보기
+> hadoop fs -ls /
+# 복사(로컬파일 -> hdfs 파일)
+> hadoop fs -copyFromLocal 원본파일 대상파일
+# 복사(로컬파일 <- hdfs 파일)
+> hadoop fs -copyToLocal 원본파일 대상파일
+# 파일읽기 
+> hadoop fs -cat 파일
+# 파일이동(디렉토리, 이름변경)
+> hadoop fs -mv 파일 파일
+# 파일삭제
+> hadoop fs -rm 파일
+# 디렉토리 삭제(내부)
+> hadoop fs -rmr 디렉토리
+----------------------------------------------------------------------------------
+
+3.[방법1] HDFS로 파일을 직접 전송
+-------------------------------------
+아래 두 방법이 동일하다
+hadoop fs ~
+hdfs dsf ~ 
+-------------------------------------
+
+명령 옵션 보기
+> hdfs
+names.csv 파일을 hdfs의 /data 폴더에 옮겨라
+[일반 도커 화면]
+1). names.csv를 윈도우에서 우분트로 이동
+ (윈도우상에서는 툴박스안에 두고 names.csv 실습)
+ > docker cp names.csv master:/home/data/names.csv
+
+[master 화면]
+2). hdfs상 해당 디렉토리(/data)가 존재하는가? 없으면 만들어야지
+ > hadoop fs -mkdir /data
+  
+3). 우분트(mater)에서 names.cvs를 hdfs로 이동
+ > hadoop fs -put /home/data/names.csv /data
+
+4). 최종확인 master, slave1, slave2에서 다 동일하게 hdfs상에 /data/names.csv가 있는지 확인 (분산)
+ > hadoop fs -ls /data
+
+뭔가 하둡도구로 연산이 진행된후 결과를 돌려받는다
+
+5). hdfs에서 특정 파일을 우분트(master)로 가져온다 -> get 옵션 사용
+ > cd /home/data
+ > hadoop fs -get /data/names.csv  /home/data/re_names.csv
+
+[일반 도커 화면]
+6). 우분트에서 로컬 PC(윈도우)로 가져온다
+ > docker cp master:/home/data/re_names.csv re_names.csv 
+
+
+4.[방법2] 파일을 하이브(hive)로 테이블로 가져오기
+[마스터 화면]
+0) 하둡이 설정된 이후 ( 하둡 설정 이전에 설치할려면 어느 정도 가정하고)
+1) 하이브 설치 -> 최종 > hive> 프럼프트가 열린다
+하이브 다운로드및 압축 해제
+ > cd $HADOOP_HOME
+ > cd ../..
+ > mkdir hive && cd hive
+ > wget http://mirrors.sonic.net/apache/hive/hive-2.3.4/apache-hive-2.3.4-bin.tar.gz
+ > tar -xzvf apache-hive-2.3.4-bin.tar.gz
+환경 변수 설정
+ > nano ~/.bashrc
+-------------------------------------------------------
+# hive config path setting
+export HIVE_HOME=/home/soft/apache/hive/apache-hive-2.3.4-bin
+export PATH=$PATH:$HIVE_HOME/bin
+-------------------------------------------------------
+hdfs상에 폴더 만들기 및 권한 조정
+ > hdfs dfs -mkdir /tmp
+ > hdfs dfs -mkdir /tmp/hive
+ > hdfs dfs -mkdir /user
+ > hdfs dfs -mkdir /user/hive
+ > hdfs dfs -mkdir /user/hive/warehouse
+
+ > hdfs dfs -chmod g+w /tmp
+ > hdfs dfs -chmod g+w /user/hive/warehouse
+ > hdfs dfs -chmod 777 /tmp/hive
+환경 설정
+ > cd apache-hive-2.3.4-bin/conf
+ > cp hive-env.sh.template hive-env.sh
+ > nano hive-env.sh
+-----------------------------------------------
+추가분
+HADOOP_HOME=/home/soft/apache/hadoop/hadoop-2.6.5
+-----------------------------------------------
+ > cp hive-default.xml.template hive-default.xml
+ > cp hive-log4j2.properties.template hive-log4j2.properties
+ > cp hive-exec-log4j2.properties.template hive-exec-log4j2.properties
+ > cp beeline-log4j2.properties.template beeline-log4j2.properties
+환경설정 편집
+ > nano hive-default.xml
+ ----------------------------------------------
+    <property>  
+       <name>hive.metastore.warehouse.dir</name> 
+       <value>/home/soft/apache/hive/apache-hive-2.3.4-bin/warehouse</value> 
+       <description>location of default database for the warehouse</description> 
+   </property> 
+   <property> 
+       <name>hive.metastore.local</name> 
+       <value>true</value>
+       <description>Use false if a production metastore server is used</description> 
+   </property> 
+   <property> 
+       <name>hive.exec.scratchdir</name> 
+       <value>/tmp/hive</value> 
+       <description>HDFS root scratch dir for Hive jobs which gets created with write all (733) permission. For each connecting user, an HDFS scratch dir: ${hive.exec.scratchdir}/<username> is created, with ${hive.scratch.dir.permission}.</description> 
+   </property> 
+   <property> 
+       <name>javax.jdo.option.ConnectionURL</name> 
+       <value>jdbc:mysql://localhost:3306/hive_metastore_db?createDatabaseIfNoExist=true</value> 
+       <description> Roy 
+     JDBC connect string for a JDBC metastore. 
+     To use SSL to encrypt/authenticate the connection, provide database-specific SSL flag in the connection URL. 
+     For example, jdbc:postgresql://myhost/db?ssl=true for postgres database. 
+   </description> 
+   </property> 
+   <property> 
+       <name>javax.jdo.option.ConnectionDriverName</name> 
+       <value>com.mysql.jdbc.Driver</value> 
+       <description>User-Defined(Roy) Driver class name for a JDBC metastore</description> 
+   </property> 
+   <property> 
+       <name>javax.jdo.option.ConnectionUserName</name> 
+       <value>hive</value> 
+       <description>User-defined(Roy)Username to use against metastore database</description> 
+   </property> 
+   <property> 
+       <name>javax.jdo.option.ConnectionPassword</name> 
+       <value>hivedev</value> 
+       <description>User-defined(Roy)password to use against metastore database</description> 
+   </property>
+--------------------------------------------
+   >exit
+[다시 마스터에 진입후]
+하이브 구성후 처음 실행히 반드시 선행되는 명령
+   >schematool -initSchema -dbType derby
+하이브 진입
+   >hive
+하이브 프럼프트 
+   hive> show databases;
+------------------------------------------------------------------   
+OK
+default
+Time taken: 0.518 seconds, Fetched: 1 row(s)
+------------------------------------------------------------------   
+테이블을 생성하면서 데이터를 디비에 입력
+입력데이터의 형태
+- 텍스트 파일 : 모든 데이터의 형식이 유니코드 표준 준수한 원시 텍스트로 저장된 파일(csv,txt,..)
+- 시퀀스 파일 : 데이터가 이진 키-값의 쌍으로 구성되어 저장된 파일
+- RC 파일 : 데이터로 로우 기반 최적화하는 방식 대신 컬럼 기반으로 최적화된 형식으로 저장
+- ORC 파일 : Optimized Row Columnar 하이브 성능 극대롸 하는 형식
+- Parquest 파일: 하이브, 드릴, 임팔라, 크런치, 피그등에서 하이브와 호환되는 컬럼기반 형식으로 저장된
+
+하이브의 테이블은 외부테이블과 내부테이블로 나누어진다
+처리 속도가 빠른것은 내부 테이블이 된다
+#외부테이블을 만들어서 csv를 입력
+  hive> create external table if not exists Names_text (
+    EmployeeID int, Names string, Title string, State string, Latop String
+  ) comment 'Employee Names'
+  Row format Delimited
+  Fields terminated by ','
+  stored as textfile
+  location '/data'
+
+#내부테이블 만든다 -> orc 방식
+
+
+#외부테이블에서 내부테이블로 데이터 입력
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+5.[방법3] 스파크를 이용하여 csv, json 파일을 하이브 테이블로 가져오기
+
+6.[방법4] 아파치 스쿱을 이용하여 RDBMS에서 데이터 주고 받기
+
+7.기타 방법
+> 풀럼 : 데이터 스트림으로 입수(웹 로그파일)
+> 우지 : 작업 및 데이터의 흐름 구성(파이프라인)
+> 팔콘 : 데이터 리플리케이션, 생명주기관리, 계보, 추적등 기능 제공
+> 니피 : 시스템 로직 정의, GUI, 센서데이터 유용
+> 아틀라스 : 기업의 관제 서비스용(법류적인부분 요구사항 처리시)

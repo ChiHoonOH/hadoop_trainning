@@ -1,0 +1,36 @@
+[순수 스파크 세팅]
+
+[우분투에서 파생된 세팅중인 컨테이너 ubuntu_u16_hadoop]
+
+프로그램 설치 위치 설정 
+> mkdir /home/soft/apache/spark && cd /home/soft/apache/spark
+
+> wget http://mirrors.sonic.net/apache/spark/spark-2.4.0/spark-2.4.0-bin-hadoop2.6.tgz
+ 
+> tar -xzf spark-2.4.0-bin-hadoop2.6.tgz
+
+이동 
+
+> cd spark-2.4.0-bin-hadoop2.6
+
+
+프로젝트 위치 생성
+> mkdir /home/soft/project && /home/soft/project
+
+-----------------------------------------------------------
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName('appName').getOrCreate()
+sc = spark.sparkContext
+rdd = sc.parallelize([1,2,3,4,5,6,7]) # parallelize 변환 
+print(rdd.count())
+-----------------------------------------------------------
+
+> spark-submit test_spark.py
+
+
+
+# 컨테이너를 이미지 저장
+
+docker commit hadoop_u16_base pkrngd/hadoop:ubuntu_hadoop:1.0
+
+docker push pkrngd/hadoop_base

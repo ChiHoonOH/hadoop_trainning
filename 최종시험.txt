@@ -1,0 +1,10 @@
+[ 최종 시험 ]
+1) master, slave1, slave2 구성
+   마스터에 해당 포트 오픈
+   -p 50070:50070 -p 9000:9000 -p 3306:3306 -p 8088:8088
+2) master에 hive 구성
+3) master에서 
+ > hdfs상에 /data 디렉토리 구성
+ > AFINN.txt 파일을 /data 밑에 위치 (해당 파일은 자료실에 업로드 예정)
+ > 해당 파일 리스트가 보이는 slave1에서 수행하여 스샷 1장 제출
+ > hive에 진입해서 show databases; 수행 후 결과 스샷 1장 제출
